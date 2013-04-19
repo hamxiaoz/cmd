@@ -1,7 +1,7 @@
 require 'rake'
 require 'rake/testtask'
-require 'rake/rdoctask'
-require 'rake/gempackagetask'
+require 'rdoc/task'
+require 'rubygems/package_task'
 require 'rake/contrib/rubyforgepublisher'
 require 'rake/contrib/sshpublisher'
 
@@ -9,7 +9,7 @@ require 'date'
 require 'rbconfig'
 
 PKG_NAME         = 'cmd'
-PKG_VERSION      = '0.7.2'
+PKG_VERSION      = '0.7.3'
 PKG_FILE_NAME    = "#{PKG_NAME}-#{PKG_VERSION}"
 PKG_DESTINATION  = "../#{PKG_NAME}"
 PKG_AUTHOR       = 'Marcel Molina Jr.' 
@@ -89,7 +89,7 @@ spec = Gem::Specification.new do |s|
   s.rubyforge_project = PKG_NAME
 end
 
-Rake::GemPackageTask.new(spec) do |pkg|
+Gem::PackageTask.new(spec) do |pkg|
   pkg.need_zip     = true
   pkg.need_tar_gz  = true
   pkg.need_tar_bz2 = true

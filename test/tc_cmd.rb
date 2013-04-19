@@ -1,4 +1,4 @@
-require File.dirname(__FILE__) + '/../lib/cmd'
+require_relative '../lib/cmd'
 require 'test/unit'
 require 'stringio'
 

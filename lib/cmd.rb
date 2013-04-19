@@ -68,9 +68,12 @@ class Cmd
     # XXX This could probably be more robust
     def prompt
       case @@prompt
-      when Symbol: self.send @@prompt
-      when Proc:   @@prompt.call
-      else         @@prompt
+      when Symbol 
+          self.send @@prompt
+      when Proc   
+          @@prompt.call
+      else         
+          @@prompt
       end.to_s
     end
     module_function :prompt
@@ -233,8 +236,10 @@ class Cmd
     # Runs the customized exception handler for the given exception.
     def run_custom_exception_handling(exception)
       case handler = custom_exception_handler(exception)
-      when String: write handler 
-      when Symbol: self.send(custom_exception_handler(exception))
+      when String
+          write handler 
+      when Symbol
+          self.send(custom_exception_handler(exception))
       end
     end
 
@@ -374,7 +379,7 @@ class Cmd
 
     # Lists all subcommands of a given command.
     def subcommands(command)
-      completion_grep(subcommand_list, translate_shortcut(command) + '_')
+      completion_grep(subcommand_list, translate_shortcut(command).to_s + '_')
     end
 
     # Indicates whether a given command has any subcommands.
@@ -476,7 +481,7 @@ class Cmd
       user_interrupt and return if line.nil? 
 
       cmd, *args = line.split
-      args = args.to_s.empty? ? nil : args * ' '
+      args = args.empty? ? nil : args * ' '
       if args and has_subcommands?(cmd)
         if cmd = find_subcommand_in_args(subcommands(cmd), line.split)
           # XXX Completion proc should be passed array of subcommands somewhere
