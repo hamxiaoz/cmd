@@ -1,0 +1,411 @@
+= Cmd
+
+== What is Cmd?  
+
+cmd is a library for building line-oriented command interpreters in Ruby.
+Simply inherit from cmd's Cmd class, and methods whose names start with +do_+
+become interactive commands. cmd is inspired by the 
+{Python library}[http://docs.python.org/lib/module-cmd.html] of the same name, but
+offers a distinctive Ruby feel and several additional features.
+
+== An Example
+
+Consider the following example of a small program to manage a lightweight phone
+book.
+
+We want to be able to add, find, list and delete phone book entries. 
+
+We are keeping it realy simple so the entries will be stored in a Hash with
+names as keys and numbers as values. Let's assume that <tt>@numbers</tt> is
+our hash. First we'll write a command to add an entry. Entries will be entered
+like so:
+
+  PhoneBook> add Sam, 312-555-1212
+
+So we define a +do_add+ method.
+
+  def do_add(args)
+    name, number = args.to_s.split(/, +/)
+    @numbers[name.strip] = number
+  end
+
+We add another entry for good measure.
+
+  PhoneBook> add Amy, 227-328-2868
+
+We make a +print_name_and_number+ method to format our entries.
+
+  protected 
+
+    def print_name_and_number(*args)
+      puts "%-25s %s" % args
+    end
+
+Writing a command to list all numbers is straightforward:
+
+  def do_list
+    @numbers.sort.each do |name, number|
+      print_name_and_number(name, number)
+    end
+  end
+
+We run our +list+ command:
+
+  PhoneBook> list
+  Amy                       227-328-2868
+  Sam                       312-555-1212
+
+Then we write a find command to get the number for a given person.
+
+  def do_find(name)
+    name.to_s.strip!
+    if @numbers[name]
+      print_name_and_number(name, @numbers[name])
+    else
+      puts "#{name} isn't in the phone book"
+    end
+  end
+
+  PhoneBook> find Sam
+  Sam                       312-555-1212
+  PhoneBook> find Matz
+  Matz isn't in the phone book
+
+Well we are cruising for burgers. But say we have a falling out with Amy (she
+was taking up too much disk space anyway).  No reason to keep her in the phone
+book, so we'll define a +delete+ command.
+
+  def do_delete(name)
+    @numbers.delete(name) || write("No entry for '#{name}'")
+  end
+
+  PhoneBook> delete Amy
+  PhoneBook> list
+  Sam                       312-555-1212
+
+== Shortcuts
+
+Commands like +add+ and +delete+ have clear names. They are self-documenting.
+But it can get tedious to type them all out all the time.
+
+You can add shortcuts for commands using Cmd::ClassMethods.shortcut.
+
+  shortcut  '+',  :add
+
+The default +help+ command lists shortcuts for a given command. The +help+
+command itself has a shortcut: +?+.
+
+  PhoneBook> ? add 
+  add    -- Add an entry (ex: add Sam, 312-555-1212) (aliases: +)
+
+Additionally, any unambiguous abbreviation of a command will be translated
+to the full command (so aliases that simply shorten the name of a given command
+are unnecessary).
+
+Since we only have one command that starts with +h+, the above could have been
+written as:
+
+  PhoneBook> h add
+  add    -- Add an entry (ex: add Sam, 312-555-1212) (aliases: +)
+
+Furthermore, abbreviations are acceptable in any place a command name appears,
+so you could write the above in an even more abbreviated way:
+
+  PhoneBook> h a
+  add    -- Add an entry (ex: add Sam, 312-555-1212) (aliases: +)
+
+== Documenting your commands
+
+Our phone list now has its basic functionality. Let's add some documentation so
+that someone other than you can figure out how to use it.
+
+You document your commands using Cmd::ClassMethods.doc. We'll add docs for our
+four commands so far:
+
+  doc :add,    'Add an entry (ex: add Sam, 312-555-1212)'
+  doc :find,   'Look up an entry (ex: find Sam)'
+  doc :list,   'List all entries'
+  doc :delete, 'Remove an entry'
+
+== Getting Help
+
+As illustrated above, there is a predefined +help+ command. Called without
+arguments, it displays a help line for each command that has been documented
+using the Cmd::ClassMethods.doc class method. (See <tt>Documenting your
+commands</tt> for more on this.) By default, commands without documentation are
+listed at the end of the +help+ output; this can be turned off by setting
+YourCmdClass.hide_undocumented_commands = true. You can get help for a single
+command by passing it as an argument to the +help+ command. 
+
+  PhoneBook> help add
+  add    -- Add an entry (ex: add Sam, 312-555-1212)
+
+Typing +help+ affords you tab completion on all available commands with
+documentation, so the above could be accomplished (assuming there are no other
+documented commands that start with the letter +a+) by typing:
+
+  PhoneBook> help a<Tab>
+
+The help command is aliased to +?+. 
+
+== Subcommands
+
+Any method that is of the form +do_command_subcommand+ will be interpreted as a
+subcommand of +command+. For example, if there was an +add+ command, a
++do_add_cellphone+ method would be invoked if 'add cellphone' was entered at
+the prompt. If there was no +add+ command, +do_add_cellphone+ would not be
+interpreted as a subcommand; you'd need to enter 'add_cellphone' to invoke it.
+
+== Missing commands
+
+Much like +method_missing+, there is a +command_missing+ method which is called
+if an undefined command is entered in at the prompt. By default it simply
+reports that the command does not exist; subclasses can override this behavior.
++command_missing+ is passed the entered command name as well as any arguments.
+You must define your +command_missing+ this way. 
+
+Let's make phone book entry lookups more convenient by having +command_missing+
+delegate to the +find+ command.
+
+  protected 
+
+    def command_missing(command, args)
+      do_find(command)
+    end
+
+Now we can do
+
+  PhoneBook> Sam
+  Sam                       312-555-1212
+
+== Lifecycle callbacks
+
+Right now our phone book isn't really useful as the hash gets lost any time you
+quit the program. Let's implement a simple storage scheme so that our phone
+book entries will persist between invocations. A simple solution is just to
+serialize the phone book hash to YAML in a file. 
+
+First we'll choose a place to store the file (apologies to people running
+Windows).
+
+  PHONEBOOK_FILE = File.expand_path('~/.phonebook')
+
+When the command loop is started, your subclass's +setup+ method is called. 
+Consider this your +initialize+. We can use this to grab the contents of our
+phone book file.
+
+  protected 
+
+    def setup
+      @numbers = get_store || {}
+    end
+
+    def get_store
+      File.open(PHONEBOOK_FILE) {|store| YAML.load(store)} rescue nil
+    end
+
+Now when we start up our phone book it will grab our entries or create a fresh
+Hash in which to add entries. But we don't have any code to save our phone book
+entries!
+
+A Cmd session happens mostly inside a loop. This loop accepts commands until it
+is told to stop. Like +setup+, there are several methods that are called
+automatically during the lifetime of this loop. One such method is +postloop+,
+which, as the name suggests, is called after the loop is done, or in other
+words, once the Cmd session is completed. This turns out to be a good candidate
+for the task of saving our phone book entries.
+
+  protected 
+
+    def postloop
+      File.open(PHONEBOOK_FILE, 'w') {|store| store.write YAML.dump(@numbers)}
+    end
+
+And that is that. Now when we exit the phone book our numbers will be saved to
+our phone book file.
+
+  $ ruby phonebook.rb
+  PhoneBook> l
+  PhoneBook> a Sam, 312-555-1212
+  PhoneBook> Sam
+  Sam                       312-555-1212
+  PhoneBook> exit
+  $ ruby phonebook.rb
+  PhoneBook> l
+  Sam                       312-555-1212
+
+There are five life-cycle callbacks. The complete list is below:
+
++setup+::    Called when your Cmd subclass is created, like +initialize+.
++preloop+::  Called before the command loop begins
++precmd+::   Called before each command
++postcmd+::  Called after each command; has access to the +current_command+
+             method, which returns the name of the current command
++postloop+:: Called after the command loop ends
+
+Here we can have a look at a working copy of our
+{PhoneBook}[http://svn.vernix.org/main/library/cmd/trunk/example/phonebook.rb].
+
+== Customizing command completion
+
+By default Cmd supports readline functionality if it is enabled on your system.
+This affords you command line history as well as command completion. The
+default completion procedure will complete command names for you when you hit
+the Tab key.
+
+  PhoneBook> l<Tab>
+  PhoneBook> list
+
+As is the case in your standard shell, hitting tab twice when there is nothing
+to complete will list all commands.
+
+  PhoneBook> <Tab><Tab>
+  add     delete  exit    find    help    list    shell
+
+Completion can be customized on a per-command basis by defining a method of
+the form +complete_command+ (where +command+ is a command name) which 
+returns an array with zero or more strings. The following (contrived) example
+illustrates the idea:
+
+  $ grep -A 3 complete_add
+  def complete_add
+    %w{ cellphone fax home office }
+  end
+
+  PhoneBook> add <Tab>
+  cellphone    fax    home    office
+  PhoneBook> add o<Tab>
+  PhoneBook> add office
+
+If a given command has subcommands, Cmd's built in completion method will
+complete with those subcommands automatically, so the above example would be
+redundant were there to be command methods such as +do_add_office+ and
++do_add_home+, etc.
+
+FIXME These docs lie I'm afraid. The API is not that simple yet, though the
+above is the intended API. Check out the part of the link:files/TODO.html
+file that talks about improving how completion works.
+
+== Setting your prompt
+
+By default the prompt will look like 'YourSubclass> '. So in the example above,
+where we have been writing all that code inside a PhoneBook class that
+inherits from Cmd, the prompt reads 'PhoneBook> '. The
+Cmd::ClassMethods.prompt_with macro style method can be used to set a custom
+prompt. The simplest prompt would just be a static string:
+
+  prompt_with '>  '
+
+You can, alternatively, pass Cmd::ClassMethods.prompt_with a Proc or method reference.
+
+=== Proc
+
+  # Contrived...
+  prompt_with { "#{Time.now}> " }
+
+=== Method reference
+
+  prompt_with :set_prompt
+
+  protected 
+  
+    # This assumes current_directory is defined by your Cmd subclass
+    def set_prompt
+      "#{ENV['USER']:#{current_directory}$ "
+    end
+
+Using a method reference affords you access to all the state of your Cmd
+instance.
+
+N.B. The result of whatever is passed to Cmd::ClassMethods.prompt_with has +to_s+ called on it.
+
+== Trapping user interrupts
+
+If a user attempts to exit the command loop (using, for example, Ctrl-C), the
+Cmd.user_interrupt method is called. Subclasses may override this. By default
+it simply exits. 
+
+== Customizing passed arguments
+
+For commands that take arguments (determined by whether or not you define your
++do_+ method with arguments), a method Cmd#tokenize_args is called on the passed
+arguments. The default implementation has no side effects. 
+
+N.B. This API will more than likely change to something far more useful and
+Rubyesque. Please checkout the link:files/TODO.html for details.
+
+== Handling exceptions
+
+All exceptions raised within the command loop are caught. You can specify what
+action should be taken if a specific exception is raised by using the
+Cmd::ClassMethods.handle method.
+
+  handle StackOverflowError, :handle_stack_overflow
+
+If you specify a symbol the referenced method will be called. If you supply a
+string, such as
+
+  handle StackOverflowError, 'Stack underflowed'
+
+the string will be displayed to the user.
+
+All other exceptions are passed to a Cmd.handle_exception method which by
+default simply reraises the exception. Subclasses may use this to customize how
+exceptions are handled. 
+
+  def handle_exception(exception)
+    write 'Error'
+  end
+
+== Not running interactively
+
+Though subclasses of Cmd are meant to be run interactively, you may find that
+you'd like to have access to a given command without starting up a session with
+the interactive interpreter. Cmd allows you to run commands from the command
+line. If you supply a command (with optional arguments) when invoking the
+program that runs your command loop, the supplied command will be invoked, and
+execution will stop.
+
+  $ ruby phonebook.rb Sam
+  Sam                       312-555-1212
+
+== Empty command lines
+
+If a user enters an empty line at the command prompt, the +empty_line+ method
+is called. By default it does nothing.
+
+== Stopping the loop
+
+Calling the +stoploop+ method will stop the command loop once the current
+command is complete. 
+
+== Hidding undocumented commands
+
+By default undocumented commands (if any) are listed at the bottom of the
+default help message. This behaviour can be disabled by setting
++hide_undocumented_commands+ to +true+. 
+
+  MyCmdClass.hide_undocumented_commands = true
+
+== Callback reference
+
++handle_exception+:: see Handling exceptions
++user_interrupt+::   see Trapping user interrupts
++tokenize_args+::    see Customizing passed in arguments
++setup+::            see Setting up your environment
++command_missing+::  see Missing commands
++empty_line+::       see Emtpy command lines
+
+== Download
+
+Subversion 
+
+* http://svn.vernix.org/main/library/cmd/trunk 
+
+Documentation can be found at
+
+* http://code.vernix.org/cmd
+
+== Install
+
+See the link:files/INSTALL.html doc.

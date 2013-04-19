@@ -1,0 +1,160 @@
+= Cmd Todo list
+
+Send suggestions for this list to marcel@vernix.org.
+
+== Todo list
+
+* The subclassing from Cmd and defining do_ methods for commands paradigm is a
+  bit limiting. So, ideas for radical change:
+
+  Cmd is a module. All do_ methods are no longer the way to write commands.
+  There are two ways to get Cmd functionality into a class.
+  
+  1) You mix in Cmd::Interpreter (or something like that). You then just define
+  methods in the class where Cmd::Interpreter is mixed in, and then use a
+  command macro to indicate that the method is a command.
+
+    e.g. 
+      command :add
+      def add(etc)
+
+  This would be useful fo pre-existing classes that would like to add Cmd
+  behavior. [credit Chad Fowler and Sam Stephenson]
+
+  2) There is a Cmd::Base class that mixes in Cmd::Interpreter. You inherit
+  from Cmd::Base and in this case all methods that are public are commands
+  implicitly without needing to use the +command+ macro. This base class would
+  be a convenience class that automatically defnotes every public method as a
+  command method.
+
+* Cmd::ClassMethods sucks. Using the singleton vars sucks. Create a metaprogramming
+  framework that is self hosting. It would be used to create the domain
+  language that would describe domain languages. [credit Sam Stephenson]
+
+* Create a way to define named-parameter options hashes and define certain
+  options as depending on other options. The allowed parameters should be able
+  to be changed depending on the values of a certain parameter. [credit Sam
+  Stephenson]
+
+* Writing a complete_(command name) is enough to have the completion results be
+  displayed, but not enough to actually complete. In order to complete as well
+  there must be additional logic such as what complete_grep does. So right now
+  to do a completion method for a command you really have to do something like:
+
+    def complete_find(line)
+      completion_grep(@numbers.keys.sort, line)
+    end
+
+  Where the first argument is the collection to complete against and line is
+  what is passed in. This API should be simplified and it should have a better
+  name than completion_grep. Also the subclass has to remember that the
+  complete method has to take an argument. It would be better to not have them
+  have to do that. Perhaps introduce (another macro) class method that just
+  takes a collection, or a method reference that returns a collection that then
+  is operated on internally. 
+
+    complete :find, :with => :phonebook_names
+
+    # ...
+
+    def phonebook_names
+      @nubers.keys.sort
+    end
+
+  or
+
+    complete :some_command, :some_other_command, :with => { # Some Proc }
+
+* Add a Documentation class (or some such) which collects list of subcommands
+  and shortcuts so that the default help command can be more helpful and
+  complete.
+
+* Make it so that doc allows one to document arguments for commands that take
+  arguments so that rather than just:
+
+    add  -- Add a number into the phonebook.
+
+  You'd get something more like
+
+    add name number [phone type]  -- Add a number into the phonebook.
+
+* Have doc work like the 'desc' method for rake where it preceeds the task to
+  which it describes rather than specifying the task excplicitly as args.
+
+* Get rid of do_ method naming convention and define a 'command' method to
+  replace the naming convention.
+
+    def do_subtract
+      # ...
+    end
+
+  would become
+
+    command subtract do
+      # ...
+    end
+
+  How to deal with method arguments? Perhaps doing:
+
+    command subtract do |arg|
+      # ...
+    end
+
+  Sam suggests command being the death of the doc macro:
+
+    command :add, 'Add an entry' do |name, number|
+      @numbers[name.strip] = number
+    end
+
+  I think that's pretty nice.
+
+  UPDATE: The above todo regarding making Cmd a module and having the choice of
+  subclassing Cmd::Base or mixing in something like Cmd::Interpreter obsoletes
+  this approach.
+
+* Take another shot at having more objects (e.g. Command, Subcommand,
+  Documentation, etc)
+
+* Provide a means of documenting subcommands
+
+* When passing arguments to do_ methods do a better job of just checking if the
+  method takes arguments and then passing them all in with *args. Do all the
+  arity checks and then pass it as many args as the do_ method takes. Raise
+  some client catchable exception if nothing can be done with the passed args
+  to satisfy the method signature of the do_ method. Basically make the do_
+  command methods as much like ruby methods as possible so that the arguments
+  are handed to the command so that it can access them directly rather than
+  having to fish them out.
+
+  So get rid of tokenize_args...it's a busted idea. Instead have
+
+    e.g.
+
+      def do_add(name, number)
+        # ...
+      end
+
+  If the method that takes care of passing a command the appropriate number of
+  arguments can't do its job based on the input given then the default could be
+  something like announcing that there was an argument error (perhaps
+  formalized using handle) and then the help for that command should be
+  displayed.
+
+* Implement rudimentary interaction with the underlying shell using the
+  standard | pipe notation and > redirection notation so that someone could do:
+
+    prompt> command | sort
+    
+    or
+
+    prompt> command > commands-output.txt
+
+    and maybe
+
+    prompt> command | sort > sorted-command-output.txt
+
+  Though I don't really want to write anything too fancy or complicated. I
+  think the most basic functionality of pipes and redirects would be useful
+  though.
+
+* Perhaps allow subclasses to override the tab as the completion key.

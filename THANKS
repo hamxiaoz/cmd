@@ -1,0 +1,12 @@
+Sam Stephenson (http://conio.net/) was gracious enough to take a close look at
+cmd.rb's API early on. If you find yourself pleased or impressed with a feature
+of cmd.rb it's most likely something that was his idea. He also supplied me
+with an excellent example of cmd.rb's usage with his calc.rb that you can find
+in the example directory.
+
+Jamis Buck (http://jamis.jamisbuck.org/) who enriched Cmd's domain language
+with his suggestion for a 'handle' macro.
+
+Mikael Brockman (http://www.phubuh.org/) 
+
+Scott Barron (http://scott.elitists.net/)

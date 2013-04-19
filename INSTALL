@@ -1,0 +1,11 @@
+= Installing cmd
+
+== With RubyGems
+
+  $ sudo gem i cmd -r
+
+== From tarball
+
+  $ tar -zxvvf cmd-x.x.x.tar.gz
+  $ cd cmd-x.x.x
+  $ sudo ruby setup.rb

@@ -1,0 +1,18 @@
+= Cmd Changelog
+
+== Version 0.7.2
+
+* Breaking the assignment to READLINE_SUPPORTED over multiple lines did not
+  appease RDoc. Fortunately Dave Thomas showed me several ways that I could
+  accomplish the same thing whilst appeasing RDoc. Sadly another minor bug fix
+  release :\ [Dave Thomas]
+
+== Version 0.7.1 
+
+* Broke assignment to READLINE_SUPPORTED over several lines as removing the
+  semicolons resulted in the incorrect behavior, and having the semicolons made
+  RDoc fail to parse the file. [Jim Weirich]
+
+== Version 0.7.0 
+
+* Initial public release
